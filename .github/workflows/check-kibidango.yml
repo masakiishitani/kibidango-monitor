@@ -1,0 +1,41 @@
+name: Check Kibidango Project
+
+on:
+  schedule:
+    # 毎日午前10時（JST = UTC+9）に実行 = UTC 1:00
+    - cron: '0 1 * * *'
+  workflow_dispatch: # 手動実行を許可
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run check script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run check
+
+      - name: Commit data changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data.json
+          git diff --staged --quiet || git commit -m "Update project data [skip ci]"
+          git push
+        continue-on-error: true
