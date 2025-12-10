@@ -1,5 +1,4 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
+const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
@@ -11,65 +10,77 @@ const DATA_FILE = path.join(__dirname, 'data.json');
  * クラウドファンディングページから情報を取得
  */
 async function fetchProjectData() {
+  let browser;
   try {
     console.log(`📡 データ取得中: ${TARGET_URL}`);
-    const response = await axios.get(TARGET_URL, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
+
+    // Puppeteerでブラウザを起動
+    browser = await puppeteer.launch({
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+      ]
     });
 
-    const $ = cheerio.load(response.data);
+    const page = await browser.newPage();
 
-    // データを抽出（セレクタは実際のページ構造に合わせて調整が必要）
-    const data = {
-      amount: extractAmount($),
-      supporters: extractSupporters($),
-      achievementRate: extractAchievementRate($),
-      daysLeft: extractDaysLeft($),
-      activityCount: extractActivityCount($),
-      checkedAt: new Date().toISOString()
-    };
+    // ビューポートを設定
+    await page.setViewport({ width: 1920, height: 1080 });
+
+    // User-Agentを設定
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+
+    // ページにアクセス
+    await page.goto(TARGET_URL, {
+      waitUntil: 'networkidle2',
+      timeout: 30000
+    });
+
+    // ページの内容を取得して解析
+    const data = await page.evaluate(() => {
+      // 支援金額を取得
+      const amountElement = document.querySelector('.project-amount, .amount, [class*="amount"], [class*="金額"]');
+      const amount = amountElement ? amountElement.textContent.trim() : '不明';
+
+      // 支援者数を取得
+      const supportersElement = document.querySelector('.project-supporters, .supporters, [class*="supporter"], [class*="支援者"]');
+      const supporters = supportersElement ? supportersElement.textContent.trim() : '不明';
+
+      // 達成率を取得
+      const rateElement = document.querySelector('.achievement-rate, .rate, [class*="achievement"], [class*="達成"]');
+      const achievementRate = rateElement ? rateElement.textContent.trim() : '不明';
+
+      // 残り日数を取得
+      const daysElement = document.querySelector('.days-left, .remaining, [class*="days"], [class*="残り"]');
+      const daysLeft = daysElement ? daysElement.textContent.trim() : '不明';
+
+      // 活動報告数を取得（より柔軟に）
+      const activityElement = document.querySelector('.activity-count, [class*="activity"], [class*="報告"], a[href*="action"]');
+      const activityCount = activityElement ? activityElement.textContent.trim() : '不明';
+
+      return {
+        amount,
+        supporters,
+        achievementRate,
+        daysLeft,
+        activityCount,
+        checkedAt: new Date().toISOString()
+      };
+    });
 
     console.log('✅ データ取得成功:', data);
     return data;
   } catch (error) {
     console.error('❌ データ取得エラー:', error.message);
     throw error;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
   }
-}
-
-/**
- * 各データ抽出関数（ページ構造に応じて実装）
- */
-function extractAmount($) {
-  // 支援金額を抽出
-  const amountText = $('.project-amount, .amount, [class*="amount"]').first().text().trim();
-  return amountText || '不明';
-}
-
-function extractSupporters($) {
-  // 支援者数を抽出
-  const supportersText = $('.project-supporters, .supporters, [class*="supporter"]').first().text().trim();
-  return supportersText || '不明';
-}
-
-function extractAchievementRate($) {
-  // 達成率を抽出
-  const rateText = $('.achievement-rate, .rate, [class*="achievement"]').first().text().trim();
-  return rateText || '不明';
-}
-
-function extractDaysLeft($) {
-  // 残り日数を抽出
-  const daysText = $('.days-left, .remaining, [class*="days"]').first().text().trim();
-  return daysText || '不明';
-}
-
-function extractActivityCount($) {
-  // 活動報告数を抽出
-  const activityText = $('.activity-count, [class*="activity"]').text().trim();
-  return activityText || '不明';
 }
 
 /**
