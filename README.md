@@ -6,6 +6,12 @@
 
 このシステムは、[Noise Master Buds](https://kibidango.com/2879) のクラウドファンディングプロジェクトを自動的に監視し、変更があった場合にGitHub Issueで通知します。
 
+### 🔧 技術仕様
+
+- **Puppeteer（ヘッドレスブラウザ）** を使用してBot対策を回避
+- 本物のChromeブラウザとして動作し、JavaScriptで動的に生成されるコンテンツにも対応
+- GitHub Actionsで毎日自動実行
+
 ## 🎯 監視項目
 
 - 💰 **支援金額** - プロジェクトの総支援金額
@@ -53,9 +59,14 @@
 # 依存関係をインストール
 npm install
 
+# Chromiumブラウザをインストール（初回のみ）
+npx puppeteer browsers install chrome
+
 # 監視スクリプトを実行
 npm run check
 ```
+
+**注意**: ローカル環境によっては、プロキシやファイアウォールの設定により403エラーが発生する可能性があります。その場合はGitHub Actionsでの実行をお試しください。
 
 ## 📬 通知の仕組み
 
