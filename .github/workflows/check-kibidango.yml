@@ -1,0 +1,73 @@
+name: Check Kibidango Project
+
+on:
+  # 毎日午前10時（JST = UTC+9）に実行
+  schedule:
+    - cron: '0 1 * * *'  # UTC 1:00 = JST 10:00
+
+  # 手動実行を許可
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: 🔧 Node.jsをセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 📦 依存関係をインストール
+        run: npm install
+
+      - name: 🔍 プロジェクトをチェック
+        id: check
+        run: |
+          output=$(node check.js)
+          echo "$output"
+
+          # Issue作成が必要かチェック
+          if echo "$output" | grep -q "ISSUE_BODY"; then
+            echo "CREATE_ISSUE=true" >> $GITHUB_ENV
+            # Issue本文を抽出
+            issue_body=$(echo "$output" | sed -n '/--- ISSUE_BODY ---/,/--- END_ISSUE_BODY ---/p' | sed '1d;$d')
+            # 複数行の文字列をGitHub環境変数に設定
+            echo "ISSUE_BODY<<EOF" >> $GITHUB_ENV
+            echo "$issue_body" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          fi
+
+      - name: 💾 データファイルをコミット
+        if: always()
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data.json || true
+          git diff --staged --quiet || git commit -m "📊 Update project data [skip ci]"
+
+      - name: 📤 変更をプッシュ
+        if: always()
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+
+      - name: 🔔 Issueを作成
+        if: env.CREATE_ISSUE == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueBody = process.env.ISSUE_BODY;
+            const title = `🔔 きびだんごプロジェクト更新通知 - ${new Date().toLocaleDateString('ja-JP')}`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: issueBody,
+              labels: ['auto-generated', 'monitoring']
+            });

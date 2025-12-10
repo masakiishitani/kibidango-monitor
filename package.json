@@ -1,0 +1,20 @@
+{
+  "name": "kibidango-monitor",
+  "version": "1.0.0",
+  "description": "きびだんごクラウドファンディングプロジェクトの自動監視システム",
+  "main": "check.js",
+  "scripts": {
+    "check": "node check.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "cheerio": "^1.0.0-rc.12"
+  },
+  "keywords": [
+    "crowdfunding",
+    "monitoring",
+    "kibidango"
+  ],
+  "author": "masakiishitani",
+  "license": "MIT"
+}
